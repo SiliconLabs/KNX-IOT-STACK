@@ -1,0 +1,229 @@
+#!/bin/bash
+#
+#  Copyright (c) 2020, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+# ==============================================================================
+# Bash definitions
+
+if [[ -n ${BASH_SOURCE[0]} ]]; then
+    script_path="${BASH_SOURCE[0]}"
+else
+    script_path="$0"
+fi
+script_dir="$(realpath "$(dirname "${script_path}")")"
+repo_dir="$(dirname "${script_dir}")"
+ot_efr32_repo_dir="${repo_dir}/deps/ot-efr32"
+gsdk_dir="${ot_efr32_repo_dir}/third_party/silabs/gecko_sdk"
+echo "REPO DIR ${repo_dir}"
+echo "OT EFR32 REPO DIR ${ot_efr32_repo_dir}"
+
+
+# shellcheck source=script/efr32-definitions
+source "${ot_efr32_repo_dir}/script/efr32-definitions"
+
+# shellcheck source=script/util
+source "${ot_efr32_repo_dir}/script/util"
+
+set -euxo pipefail
+
+# ==============================================================================
+# Pre-build checks
+
+set +x
+echo "========================================================================================================="
+echo "Check if the Git LFS package is installed"
+echo "========================================================================================================="
+set -x
+if ! git lfs >/dev/null; then
+    set +x
+    echo "ERROR: Git LFS is not installed"
+    echo
+    echo "Please run './script/bootstrap packages'" to install it
+    exit 3
+fi
+
+set +x
+echo "========================================================================================================="
+echo "Ensure Git LFS has been initialized for the GSDK"
+echo "========================================================================================================="
+set -x
+if [ ! -f "$(git -C "${gsdk_dir}" rev-parse --git-dir)/hooks/pre-push" ]; then
+    git -C "${gsdk_dir}" lfs install
+fi
+
+set +x
+echo "========================================================================================================="
+echo "Ensure GSDK submodule has been initialized and LFS objects have been pulled"
+echo "========================================================================================================="
+set -x
+git -C "${ot_efr32_repo_dir}" submodule update --init third_party/silabs/gecko_sdk
+git -C "${gsdk_dir}" lfs pull
+
+# ==============================================================================
+# Global variables
+# ==============================================================================
+top_level_build_dir="${repo_dir}/build/"
+
+OT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET-}
+
+CMAKE_OPTIONS=(
+    "-GNinja"
+    "-DCMAKE_BUILD_TYPE=Debug"
+)
+readonly CMAKE_OPTIONS
+
+OT_OPTIONS=(
+    "-DOT_CLI_VENDOR_EXTENSION=${repo_dir}/port/ot-efr32/knx_cli_ot_extension.cmake"
+    "-DOT_DIAGNOSTIC=OFF"
+    "-DOT_EXTERNAL_HEAP=ON"
+    "-DOT_PING_SENDER=ON"
+    "-DOT_SLAAC=ON"
+)
+readonly OT_OPTIONS
+
+KNX_OPTIONS=(
+    # Disable built-in mbedtls. Use mbedTLS from the GSDK instead
+    "-DKNX_BUILTIN_MBEDTLS=OFF"
+    "-DEXTERNAL_MBEDTLS_LIB=openthread-efr32-knx-mbedtls"
+    # Disable OC_DBG prints
+    "-DOC_DEBUG_ENABLED=OFF"
+    # Disable PRINT prints as the KNX stack is very verbose
+    "-DOC_PRINT_ENABLED=OFF"
+    # Disable OSCORE as it's only used when using an RTOS
+    "-DOC_OSCORE_ENABLED=OFF"
+)
+readonly KNX_OPTIONS
+
+# ==============================================================================
+
+generate()
+{
+    set +x
+    echo "========================================================================================================="
+    echo "Generate openthread-efr32-knx and openthread-efr32-knx-mbedtls libs"
+    echo "========================================================================================================="
+    set -x
+    "${ot_efr32_repo_dir}/script/generate" \
+        "${repo_dir}/port/ot-efr32/openthread-efr32-knx.slcp" \
+        "${slc_generated_projects_dir}/knx" \
+        "${board}"
+}
+
+build_knx()
+{
+    set +x
+    echo "======================================================================"
+    echo "Building KNX apps:"
+    echo "======================================================================"
+    set -x
+    # Define the build directory
+    local knx_build_dir="${board_build_dir}/knx"
+
+    # Get the platform to know which cmake toolchain file to use
+    local platform=$(efr32_get_platform "${board}")
+
+    # Create the build directory
+    mkdir -p "${knx_build_dir}"
+    cd "${knx_build_dir}"
+
+    # Generate the build files
+    cmake \
+        -DEFR32=ON \
+        -DOT_PLATFORM_LIB=openthread-efr32-knx \
+        -DOT_PLATFORM_LIB_DIR="${slc_generated_projects_dir}/knx" \
+        -DCMAKE_TOOLCHAIN_FILE=deps/ot-efr32/src/"${platform}"/arm-none-eabi.cmake \
+        "$@" "${repo_dir}" \
+
+    # Build the apps
+    ninja "${OT_CMAKE_NINJA_TARGET[@]}"
+
+    cd "${repo_dir}"
+}
+
+main()
+{
+    local usage="usage: $0 [-h] <brdXXXXy> [-D<OT_XXXX=ON> -D<OT_YYYY=OFF>]"
+
+    # Parse flags
+    optspec=":h-:"
+    while getopts "$optspec" optchar; do
+        case "${optchar}" in
+            -)
+                case "${OPTARG}" in
+                    *)
+                        echo "Unknown option --${OPTARG}" >&2
+                        exit 2
+                        ;;
+                esac
+                ;;
+            h)
+                echo "${usage}" >&2
+                exit 2
+                ;;
+        esac
+    done
+
+    # Parse board
+    lowercase_args=$(echo "$@" | tr '[:upper:]' '[:lower:]')
+    board=$([[ ${lowercase_args} =~ (brd[0-9]{4}[a-z]{1}) ]] && echo "${BASH_REMATCH[1]}")
+    shift
+
+    # Define build and SLC generation directories
+    board_build_dir="${top_level_build_dir}/${board}"
+    slc_generated_projects_dir="${board_build_dir}"/slc
+
+    local options=("${CMAKE_OPTIONS[@]}" "${OT_OPTIONS[@]}" "${KNX_OPTIONS[@]}")
+    options+=("$@")
+
+    # Generate the platform libs and related libs
+    generate
+
+    # Set the default targets if not provided
+    if [ -z "${OT_CMAKE_NINJA_TARGET}" ]; then
+        OT_CMAKE_NINJA_TARGET=(
+            "ot-lightswitch-actuator"
+            "ot-lightswitch-sensor"
+            )
+    fi
+
+    # Build the KNX apps
+    build_knx "${options[@]}"
+
+    # Display the generated S37 files
+    ls -alh "${board_build_dir}"/knx/samples/**/*.s37
+}
+
+cleanup()
+{
+    # Placeholder for any cleanup tasks
+    :
+}
+
+trap cleanup EXIT
+
+main "$@"
