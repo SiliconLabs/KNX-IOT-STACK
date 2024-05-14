@@ -68,3 +68,5 @@ service/resource-directory/client/unittest/obj
 
 build
 build_*
+
+.DS_Store
