@@ -1,0 +1,119 @@
+#
+#  Copyright (c) 2022, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+name: Build
+
+on:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
+  pull_request:
+    branches:
+      - 'main'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.repository == 'SiliconLabs/KNX-IOT-STACK' && github.run_id) || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TOOLCHAIN_DIR: /tmp/.toolchain
+
+jobs:
+  arm-gcc:
+    name: Arm GNU Toolchain ${{ matrix.gcc_ver }}
+    runs-on: ubuntu-22.04
+    container:
+      image: siliconlabsinc/ot-efr32-dev:latest
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gcc_ver: 12.2.Rel1
+            gcc_download_url: https://developer.arm.com/-/media/Files/downloads/gnu/12.2.rel1/binrel/arm-gnu-toolchain-12.2.rel1-x86_64-arm-none-eabi.tar.xz
+            gcc_extract_dir: arm-gnu-toolchain-12.2.rel1-x86_64-arm-none-eabi
+          - gcc_ver: 12.3.Rel1
+            gcc_download_url: https://developer.arm.com/-/media/Files/downloads/gnu/12.3.rel1/binrel/arm-gnu-toolchain-12.3.rel1-x86_64-arm-none-eabi.tar.xz
+            gcc_extract_dir: arm-gnu-toolchain-12.3.rel1-x86_64-arm-none-eabi
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.gcc_ver }}
+          verbose: 2
+
+      - name: Restore ARM Toolchain
+        uses: actions/cache@v4
+        id: cache-arm-toolchain
+        with:
+          path: ${{ env.TOOLCHAIN_DIR }}/${{ matrix.gcc_extract_dir }}
+          key: ${{ matrix.gcc_extract_dir }}
+
+      - name: Bootstrap ARM Toolchain
+        run: script/bootstrap arm_toolchain ${{ matrix.gcc_download_url }} ${{ matrix.gcc_extract_dir }} ${{ env.TOOLCHAIN_DIR }}
+
+      - name: Create LFS file hash list
+        run: git -C deps/ot-efr32/third_party/silabs/gecko_sdk lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+
+      - name: Restore gecko_sdk LFS cache
+        uses: actions/cache@v4
+        id: lfs-cache-gecko_sdk
+        with:
+            path: .git/modules/deps/ot-efr32/modules/third_party/silabs/gecko_sdk/lfs
+            key: lfs-${{ hashFiles('.lfs-assets-id') }}
+
+      - name: Git LFS Pull
+        run: git -C deps/ot-efr32/third_party/silabs/gecko_sdk lfs pull
+
+      - name: Build
+        run: |
+          export PATH=${{ env.TOOLCHAIN_DIR }}/${{ matrix.gcc_extract_dir }}/bin:$PATH
+          script/build brd4187c
+
+      - name: Gather SLC generated files
+        if: failure()
+        run: |
+          rm -rf artifact && mkdir artifact
+          for b in build/*/slc; do
+              board=$(basename $(dirname "${b}"))
+
+              echo "Artifacting '${board}'"
+              mkdir -p "artifact/${board}"
+              mv "build/${board}/slc" "artifact/${board}"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-${{ matrix.gcc_ver }}
+          path: artifact
