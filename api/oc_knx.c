@@ -171,7 +171,7 @@ delayed_reset(void *context)
   return OC_EVENT_DONE;
 }
 
-int
+oc_event_callback_retval_t
 delayed_restart(void *context)
 {
   PRINT("restart device\n");
@@ -200,7 +200,7 @@ delayed_restart(void *context)
     my_restart->cb(cached_device_index, my_restart->data);
   }
 
-  return 0;
+  return OC_EVENT_DONE;
 }
 
 static void
