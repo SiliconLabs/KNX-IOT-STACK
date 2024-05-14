@@ -128,7 +128,7 @@ typedef enum {
 oc_lsm_state_t oc_a_lsm_state(size_t device_index);
 
 /**
- * @brief retrieve the current lsm state
+ * @brief sets the current lsm state
  *
  * @param device_index index of the device to which the resource is to be
  * created
