@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.15)
-project(knx-iot-stack) 
- 
+project(knx-iot-stack)
+
 if(CMAKE_COMPILER_IS_GNUCC AND UNIX)
     add_compile_options(-fPIC)
 endif()
@@ -126,7 +126,7 @@ set(API_INCLUDE_DIR
     ${PROJECT_SOURCE_DIR}/include
 )
 
-# enable clang-tidy 
+# enable clang-tidy
 enable_clang_tidy()
 
 # Core functions used by the stack
@@ -239,7 +239,7 @@ if(NOT ${KNX_PAGE_SIZE} EQUAL "")
 endif()
 
 # Client and server versions
-set(KNX_INCLUDE_DIRS 
+set(KNX_INCLUDE_DIRS
     ${PROJECT_SOURCE_DIR}/
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/security

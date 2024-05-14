@@ -44,6 +44,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#ifdef EFR32
+#include <openthread/cli.h>
+#endif
 #ifdef WIN32
 #define __FILENAME__                                                           \
   (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
@@ -65,11 +68,16 @@ extern "C" {
 #define TAG "OC-JNI"
 #define PRINT(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #else
+
 #ifdef OC_LOG_TO_FILE
 // logging to file
 #define PRINT(...) oc_file_print(__VA_ARGS__)
 #else
+#ifdef EFR32
+#define PRINT(...) otCliOutputFormat(__VA_ARGS__)
+#else
 #define PRINT(...) printf(__VA_ARGS__)
+#endif
 #endif
 #endif
 #else
