@@ -19,6 +19,10 @@
 #include <stddef.h>
 #include <string.h>
 
+#if defined(__GNUC__)
+#include <strings.h>
+#endif
+
 #include "util/oc_etimer.h"
 #include "util/oc_list.h"
 #include "util/oc_memb.h"
