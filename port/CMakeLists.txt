@@ -1,8 +1,45 @@
-# This CMakeLists can only build the port for Linux & Windows
+# This CMakeLists can only build the port for Linux, Windows, and EFR32
 
+if(EFR32)
+    project(knx-iot-stack-port)
 
+    # Detect the platform and pick the right port
+    set(PORT_DIR ${PROJECT_SOURCE_DIR}/ot-efr32)
 
-if(UNIX OR WIN32)
+    add_library(kis-port
+        ${PROJECT_SOURCE_DIR}/oc_log.c
+        ${PORT_DIR}/abort.c
+        ${PORT_DIR}/clock.c
+        ${PORT_DIR}/dns-sd.c
+        ${PORT_DIR}/ipadapter.c
+        ${PORT_DIR}/random.c
+        ${PORT_DIR}/storage.c
+    )
+
+    target_compile_definitions(kis-port PUBLIC EFR32)
+    if (OC_USE_STORAGE)
+        target_compile_definitions(kis-port PUBLIC OC_USE_STORAGE)
+    endif()
+
+    target_include_directories(kis-port PUBLIC
+        ${PORT_DIR}
+        ${PROJECT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/../
+        ${PROJECT_SOURCE_DIR}/../include
+    )
+
+    # Link the port to the openthread library
+    target_link_libraries(kis-port PUBLIC ot-config)
+    target_link_libraries(kis-port PUBLIC openthread-ftd)
+
+    # target_include_directories(mbedcrypto PUBLIC
+    #     ${PORT_DIR}
+    #     ${PROJECT_SOURCE_DIR}
+    # )
+
+    target_link_libraries(kis-port PUBLIC kis-common ${OT_EXTERNAL_MBEDTLS})
+
+elseif(UNIX OR WIN32)
     project(knx-iot-stack-port)
 
     # Detect the platform and pick the right port
@@ -31,7 +68,7 @@ if(UNIX OR WIN32)
         target_compile_definitions(kis-port PUBLIC OC_USE_STORAGE)
     endif()
 
-    target_include_directories(kis-port PUBLIC 
+    target_include_directories(kis-port PUBLIC
         ${PORT_DIR}
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/../
@@ -42,7 +79,7 @@ if(UNIX OR WIN32)
         ${PORT_DIR}
         ${PROJECT_SOURCE_DIR}
     )
-    
+
     if(WIN32)
         target_sources(kis-port PRIVATE
             ${PORT_DIR}/mutex.c
@@ -52,7 +89,7 @@ if(UNIX OR WIN32)
     endif()
 
     target_link_libraries(kis-port PUBLIC kis-common mbedtls)
-    
+
     if(UNIX)
         target_link_libraries(kis-port PUBLIC pthread m)
     elseif(WIN32)
