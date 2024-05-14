@@ -42,7 +42,6 @@ gsdk_dir="${ot_efr32_repo_dir}/third_party/silabs/gecko_sdk"
 echo "REPO DIR ${repo_dir}"
 echo "OT EFR32 REPO DIR ${ot_efr32_repo_dir}"
 
-
 # shellcheck source=script/efr32-definitions
 source "${ot_efr32_repo_dir}/script/efr32-definitions"
 
@@ -157,7 +156,7 @@ build_knx()
         -DOT_PLATFORM_LIB=openthread-efr32-knx \
         -DOT_PLATFORM_LIB_DIR="${slc_generated_projects_dir}/knx" \
         -DCMAKE_TOOLCHAIN_FILE=deps/ot-efr32/src/"${platform}"/arm-none-eabi.cmake \
-        "$@" "${repo_dir}" \
+        "$@" "${repo_dir}"
 
     # Build the apps
     ninja "${OT_CMAKE_NINJA_TARGET[@]}"
@@ -208,7 +207,7 @@ main()
         OT_CMAKE_NINJA_TARGET=(
             "ot-lightswitch-actuator"
             "ot-lightswitch-sensor"
-            )
+        )
     fi
 
     # Build the KNX apps
