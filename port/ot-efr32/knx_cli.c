@@ -336,7 +336,31 @@ static int parse_group_addresses(const char *buf, uint32_t *ga, int max)
     return ga_len;
 }
 
-static otError add_or_edit_got_entry(void *context, bool add_only, uint8_t argc, char *argv[])
+/**
+ * @brief Adds or edits a group object table entry.
+ *
+ * This function adds or edits a group object table entry based on the provided arguments.
+ *
+ * The arguments are as follows:
+ * - argv[0]: The entry identifier.
+ * - argv[1]: The path.
+ * - argv[2]: The flags.
+ * - argv[3]: The group addresses.
+ *
+ * @param context A pointer to the context (unused).
+ * @param add_only A boolean value indicating whether to add the entry only (true) or allow editing of an existing entry
+ * with the same id (false).
+ * @param argc The number of arguments.
+ * @param argv An array of strings containing the arguments.
+ *
+ * @return An otError value indicating the success or failure of the operation.
+ *         - OT_ERROR_INVALID_ARGS: If the number of arguments is less than 4.
+ *         - OT_ERROR_ALREADY: If the entry already exists and add_only is true.
+ *         - OT_ERROR_NO_BUFS: If no empty slots are available.
+ *         - OT_ERROR_INVALID_ARGS: If failed to parse group addresses.
+ *         - OT_ERROR_NONE: If the operation is successful.
+ */
+otError add_or_edit_got_entry(void *context, bool add_only, uint8_t argc, char *argv[])
 {
     ARG_UNUSED(context);
 
@@ -351,32 +375,48 @@ static otError add_or_edit_got_entry(void *context, bool add_only, uint8_t argc,
         return OT_ERROR_INVALID_ARGS;
     }
 
-    id    = atoi(argv[0]);
-    index = find_empty_slot_in_group_object_table(id);
+    id = atoi(argv[0]);
 
+    // Check if the entry already exists
     if (add_only && oc_core_find_group_object_table_number_group_entries(index))
     {
         otCliOutputFormat("entry id already in use, set a different one or use the 'knx got edit' command\r\n");
-        return OT_ERROR_INVALID_ARGS;
+        return OT_ERROR_ALREADY;
     }
 
-    entry.id = id;
-    oc_new_string(&entry.href, argv[1], strlen(argv[1]));
-    entry.cflags = atoi(argv[2]);
+    // Check if an index matching the id is already in use
+    index = oc_core_find_index_in_group_object_table_from_id(id);
+    if (index < 0)
+    {
+        // Index not found, find an empty slot and use it for the new entry
+        index = find_empty_slot_in_group_object_table(id);
+        if (index < 0)
+        {
+            otCliOutputFormat("no empty slots available\r\n");
+            return OT_ERROR_NO_BUFS;
+        }
+    }
 
+    // Parse group addresses
     ga_len = parse_group_addresses(argv[3], temp_ga, MAX_GA_PER_ENTRY);
-
     if (ga_len == 0)
     {
         otCliOutputFormat("failed to parse group addresses\r\n");
         return OT_ERROR_INVALID_ARGS;
     }
 
+    // Fill in the entry
+    entry.id = id;
+    oc_new_string(&entry.href, argv[1], strlen(argv[1]));
+    entry.cflags = atoi(argv[2]);
     entry.ga_len = ga_len;
     entry.ga     = temp_ga;
 
+    // Add the entry to the table and write the entry to persistent storage
     oc_core_set_group_object_table(index, entry);
     oc_dump_group_object_table_entry(index);
+
+    // Register the group multicast addresses
     oc_register_group_multicasts();
 
     oc_free_string(&entry.href);
