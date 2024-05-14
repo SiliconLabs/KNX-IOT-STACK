@@ -337,6 +337,10 @@ endif()
 add_subdirectory(apps)
 add_subdirectory(deps)
 
+if (EFR32)
+    add_subdirectory(samples)
+endif()
+
 if(OC_LOG_TO_FILE_ENABLED)
     target_compile_definitions(kis-port INTERFACE OC_LOG_TO_FILE)
 endif()
