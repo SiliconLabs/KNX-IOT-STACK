@@ -71,7 +71,6 @@ fi
 script_dir="$(realpath "$(dirname "${script_path}")")"
 repo_dir="$(dirname "${script_dir}")"
 
-OT_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN)
 readonly OT_BUILD_JOBS
 
 OT_EXCLUDE_DIRS=(
@@ -104,21 +103,43 @@ readonly OT_MARKDOWN_SOURCES
 OT_PYTHON_SOURCES=('*.py')
 readonly OT_PYTHON_SOURCES
 
-OT_SCRIPT_DIR="${repo_dir}"/deps/ot-efr32/openthread/script
-readonly OT_SCRIPT_DIR
-
 CLANG_FORMAT_STYLE_FILE="${repo_dir}/deps/ot-efr32/.clang-format"
 export CLANG_FORMAT_STYLE_FILE
+
+get_files_to_format()
+{
+    local file_patterns
+    file_patterns=("$@")
+    local files_to_format
+
+    local git_ls_files
+    git_ls_files=$(git ls-files "${file_patterns[@]}")
+    for file in $(echo "${git_ls_files}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))"); do
+        files_to_format+=("${file}")
+    done
+
+    echo "${files_to_format[@]}"
+}
 
 do_clang_format()
 {
     echo -e '========================================'
     echo -e '     format c/c++ (clang-format)'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files "${OT_CLANG_SOURCES[@]}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -t -n1 -P"$OT_BUILD_JOBS" "${repo_dir}"/script/clang-format -style=file:"${CLANG_FORMAT_STYLE_FILE}" -i -verbose
+
+    local files_to_format
+    files_to_format=($(get_files_to_format "${OT_CLANG_SOURCES[@]}"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No clang files to format."
+        return
+    fi
+
+    (
+        set -x
+        "${repo_dir}"/script/clang-format -style=file:"${CLANG_FORMAT_STYLE_FILE}" -i -verbose "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -127,10 +148,20 @@ do_clang_format_check()
     echo -e '========================================'
     echo -e '     check c/c++ (clang-format)'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files "${OT_CLANG_SOURCES[@]}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n1 -P"$OT_BUILD_JOBS" "${repo_dir}"/script/clang-format-check
+
+    local files_to_format
+    files_to_format=($(get_files_to_format "${OT_CLANG_SOURCES[@]}"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No clang files to check."
+        return
+    fi
+
+    (
+        set -x
+        "${repo_dir}"/script/clang-format-check "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -139,10 +170,20 @@ do_markdown_format()
     echo -e '========================================'
     echo -e '     format markdown'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files "${OT_MARKDOWN_SOURCES[@]}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs npx prettier@2.0.4 --write
+
+    local files_to_format
+    files_to_format=($(get_files_to_format "${OT_MARKDOWN_SOURCES[@]}"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No markdown files to format."
+        return
+    fi
+
+    (
+        set -x
+        npx prettier@2.0.4 --write "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -151,10 +192,20 @@ do_markdown_check()
     echo -e '========================================'
     echo -e '     check markdown'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files "${OT_MARKDOWN_SOURCES[@]}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs npx prettier@2.0.4 --check
+
+    local files_to_format
+    files_to_format=($(get_files_to_format "${OT_MARKDOWN_SOURCES[@]}"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No markdown files to check."
+        return
+    fi
+
+    (
+        set -x
+        npx prettier@2.0.4 --check "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -163,10 +214,20 @@ do_python_format()
     echo -e '========================================'
     echo -e '     format python'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files "${OT_PYTHON_SOURCES[@]}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -ipr
+
+    local files_to_format
+    files_to_format=($(get_files_to_format "${OT_PYTHON_SOURCES[@]}"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No python files to format."
+        return
+    fi
+
+    (
+        set -x
+        python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -ipr "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -175,10 +236,20 @@ do_python_check()
     echo -e '========================================'
     echo -e '     check python'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files "${OT_PYTHON_SOURCES[@]}" | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n10 -P"$OT_BUILD_JOBS" python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -dpr
+
+    local files_to_format
+    files_to_format=($(get_files_to_format "${OT_PYTHON_SOURCES[@]}"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No python files to check."
+        return
+    fi
+
+    (
+        set -x
+        python3 -m yapf --verbose --style '{based_on_style: google, column_limit: 119}' -dpr "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -187,10 +258,20 @@ do_shell_format()
     echo -e '========================================'
     echo -e '     format shell'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))" \
-        | xargs -n1 -P"$OT_BUILD_JOBS" shfmt -i 4 -bn -ci -fn -s -w
+
+    local files_to_format
+    files_to_format=($(git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No shell files to format."
+        return
+    fi
+
+    (
+        set -x
+        shfmt -i 4 -bn -ci -fn -s -w "${files_to_format[@]}"
+    )
     popd
 }
 
@@ -199,12 +280,21 @@ do_shell_check()
     echo -e '========================================'
     echo -e '     check shell'
     echo -e '========================================'
-
     pushd "${repo_dir}"
-    local files
-    files=$(git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))")
-    printf '%s\n' "${files[@]}" | xargs -t -n1 -P"$OT_BUILD_JOBS" shfmt -i 4 -bn -ci -fn -s -d
-    printf '%s\n' "${files[@]}" | xargs -t -n1 -P"$OT_BUILD_JOBS" shellcheck -x --source-path="${repo_dir}"
+
+    local files_to_format
+    files_to_format=($(git ls-files | xargs shfmt -f | grep -v -E "^($(echo "${OT_EXCLUDE_DIRS[@]}" | tr ' ' '|'))"))
+
+    if [ ${#files_to_format[@]} -eq 0 ]; then
+        echo "No shell files to check."
+        return
+    fi
+
+    (
+        set -x
+        shfmt -i 4 -bn -ci -fn -s -d "${files_to_format}"
+        shellcheck -x --source-path="${repo_dir}" "${files_to_format}"
+    )
     popd
 }
 
