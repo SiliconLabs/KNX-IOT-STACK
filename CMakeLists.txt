@@ -265,10 +265,15 @@ endif()
 
 target_link_libraries(kisClientServer PUBLIC
     kis-common
-    mbedtls
     tinycbor-master
     kis-port
 )
+if(KNX_BUILTIN_MBEDTLS)
+    target_link_libraries(kisClientServer PUBLIC mbedtls)
+else()
+    set(EXTERNAL_MBEDTLS_LIB mbedtls CACHE STRING "External mbedtls library")
+    target_link_libraries(kisClientServer PUBLIC ${EXTERNAL_MBEDTLS_LIB})
+endif()
 target_include_directories(kisClientServer PUBLIC ${KNX_INCLUDE_DIRS})
 
 if(MSVC)
