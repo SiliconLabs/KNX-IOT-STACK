@@ -7,3 +7,6 @@
 [submodule "deps/gtest"]
 	path = deps/gtest
 	url = https://github.com/google/googletest.git
+[submodule "deps/ot-efr32"]
+	path = deps/ot-efr32
+	url = https://github.com/SiliconLabs/ot-efr32.git
