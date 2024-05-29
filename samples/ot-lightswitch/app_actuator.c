@@ -55,6 +55,7 @@ bool        g_reset   = false; /**< reset the device (from startup) */
 static void oc_add_s_mode_response_cb(char *url, oc_rep_t *rep, oc_rep_t *rep_value);
 void        app_knx_init(void);
 void        applicationTick(void);
+extern otError add_or_edit_got_entry(void *context, bool add_only, uint8_t argc, char *argv[]);
 
 /******************************************************************************
  * Application Init.
@@ -500,6 +501,10 @@ void app_knx_init(void)
         PRINT("\n");
         my_ep = my_ep->next;
     }
+
+    // Add a GOT entry
+    PRINT("Ensuring a GOT entry for /p/o_1_1 exists.\n");
+    add_or_edit_got_entry(NULL, false, 4, (char *[]){"1", "/p/o_1_1", "252", "[1]"});
 
     PRINT("Server \"%s\" running, waiting on incoming "
           "connections.\n",
