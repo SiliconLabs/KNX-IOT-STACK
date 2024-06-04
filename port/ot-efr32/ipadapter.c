@@ -452,7 +452,7 @@ static void remove_all_network_interface_cbs(void)
     oc_network_interface_cb_t *next;
 
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(network_interface_cb_mutex);
+    osMutexAcquire(network_interface_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     cb_item = oc_list_head(network_interface_cb_list);
@@ -484,7 +484,7 @@ int oc_add_network_interface_event_callback(interface_event_handler_t cb)
     cb_item->handler = cb;
 
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(network_interface_cb_mutex);
+    osMutexAcquire(network_interface_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     oc_list_add(network_interface_cb_list, cb_item);
@@ -502,7 +502,7 @@ int oc_remove_network_interface_event_callback(interface_event_handler_t cb)
         return -1;
 
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(network_interface_cb_mutex);
+    osMutexAcquire(network_interface_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     oc_network_interface_cb_t *cb_item = oc_list_head(network_interface_cb_list);
@@ -527,7 +527,7 @@ int oc_remove_network_interface_event_callback(interface_event_handler_t cb)
 void handle_network_interface_event_callback(oc_interface_event_t event)
 {
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(network_interface_cb_mutex);
+    osMutexAcquire(network_interface_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     if (oc_list_length(network_interface_cb_list) > 0)
@@ -553,7 +553,7 @@ static void remove_all_session_event_cbs(void)
     oc_session_event_cb_t *next;
 
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(session_event_cb_mutex);
+    osMutexAcquire(session_event_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     cb_item = oc_list_head(session_event_cb_list);
@@ -585,7 +585,7 @@ int oc_add_session_event_callback(session_event_handler_t cb)
     cb_item->handler = cb;
 
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(session_event_cb_mutex);
+    osMutexAcquire(session_event_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     oc_list_add(session_event_cb_list, cb_item);
@@ -603,7 +603,7 @@ int oc_remove_session_event_callback(session_event_handler_t cb)
         return -1;
 
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(session_event_cb_mutex);
+    osMutexAcquire(session_event_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     oc_session_event_cb_t *cb_item = oc_list_head(session_event_cb_list);
@@ -628,7 +628,7 @@ int oc_remove_session_event_callback(session_event_handler_t cb)
 void handle_session_event_callback(const oc_endpoint_t *endpoint, oc_session_state_t state)
 {
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osMutexAcquire(session_event_cb_mutex);
+    osMutexAcquire(session_event_cb_mutex, osWaitForever);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 
     if (oc_list_length(session_event_cb_list) > 0)
@@ -715,7 +715,7 @@ void oc_network_event_handler_mutex_init(void)
 void oc_network_event_handler_mutex_lock(void)
 {
 #if defined(SL_CATALOG_KERNEL_PRESENT)
-    osStatus_t error = osMutexAcquire(network_event_handler_mutex, 0);
+    osStatus_t error = osMutexAcquire(network_event_handler_mutex, osWaitForever);
     oc_assert(error == osOK);
 #endif // defined(SL_CATALOG_KERNEL_PRESENT)
 }
