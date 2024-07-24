@@ -35,6 +35,13 @@ on:
   pull_request:
     branches:
       - 'main'
+  workflow_dispatch:
+    inputs:
+      efr32_target:
+        description: 'Target board or efr32 part number'
+        required: true
+        default: 'brd4187c'
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.repository == 'SiliconLabs/KNX-IOT-STACK' && github.run_id) || github.ref }}
@@ -42,6 +49,7 @@ concurrency:
 
 env:
   TOOLCHAIN_DIR: ${{ github.workspace }}/.toolchain
+  EFR32_BOARD: ${{ github.event.inputs.efr32_target || 'brd4187c' }}
 
 jobs:
   arm-gcc:
@@ -99,7 +107,13 @@ jobs:
       - name: Build
         run: |
           export PATH=${{ env.TOOLCHAIN_DIR }}/${{ matrix.gcc_extract_dir }}/bin:$PATH
-          script/build brd4187c
+          script/build ${{ env.EFR32_BOARD }}
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ot-lightswitch__${{ env.EFR32_BOARD }}__gcc-${{ matrix.gcc_ver }}
+          path: build/${{ env.EFR32_BOARD }}/knx/samples/ot-lightswitch/ot-lightswitch*
 
       - name: Gather SLC generated files
         if: failure()
@@ -113,7 +127,8 @@ jobs:
               mv "build/${board}/slc" "artifact/${board}"
           done
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload SLC artifacts
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: build-${{ matrix.gcc_ver }}
