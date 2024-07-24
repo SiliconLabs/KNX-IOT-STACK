@@ -45,10 +45,10 @@ die()
 # Exit status is 0 if inputs are the same, 1 if different, 2 if trouble.
 
 # Allow using a non-default style file.
-if [ ! -z ${CLANG_FORMAT_STYLE_FILE+x} ]; then
-    style="file:${CLANG_FORMAT_STYLE_FILE}"
-else
+if [ -z ${CLANG_FORMAT_STYLE_FILE+x} ]; then
     style="file"
+else
+    style="file:${CLANG_FORMAT_STYLE_FILE}"
 fi
 
 for file in "$@"; do

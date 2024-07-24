@@ -42,10 +42,10 @@ gsdk_dir="${ot_efr32_repo_dir}/third_party/silabs/gecko_sdk"
 echo "REPO DIR ${repo_dir}"
 echo "OT EFR32 REPO DIR ${ot_efr32_repo_dir}"
 
-# shellcheck source=script/efr32-definitions
+# shellcheck source=deps/ot-efr32/script/efr32-definitions
 source "${ot_efr32_repo_dir}/script/efr32-definitions"
 
-# shellcheck source=script/util
+# shellcheck source=deps/ot-efr32/script/util
 source "${ot_efr32_repo_dir}/script/util"
 
 set -euxo pipefail
@@ -144,7 +144,8 @@ build_knx()
     local knx_build_dir="${board_build_dir}/knx"
 
     # Get the platform to know which cmake toolchain file to use
-    local platform=$(efr32_get_platform "${board}")
+    local platform
+    platform=$(efr32_get_platform "${board}")
 
     # Create the build directory
     mkdir -p "${knx_build_dir}"
