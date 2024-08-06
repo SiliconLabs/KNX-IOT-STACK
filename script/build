@@ -132,6 +132,7 @@ generate()
     echo "Generate openthread-efr32-knx and openthread-efr32-knx-mbedtls libs"
     echo "========================================================================================================="
     set -x
+    export OT_CMAKE_BUILD_DIR=${board_build_dir?}
     "${ot_efr32_repo_dir}/script/generate" \
         "${repo_dir}/port/ot-efr32/openthread-efr32-knx.slcp" \
         "${slc_generated_projects_dir}/knx" \
